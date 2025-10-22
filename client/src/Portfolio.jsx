@@ -551,263 +551,6 @@ const generateCaptcha = () => {
   };
 };
 
-// NEW: Contact Modal Component
-const ContactModal = ({ isOpen, onClose}) => {
-  // State for form data
-  const [formData, setFormData] = useState({ name: '', email: '', message: '', contact: '' });
-  // State for submission status: pending, sending, sent, error_fields, error_captcha, error_network
-  const [status, setStatus] = useState('pending');
-
-  // State for CAPTCHA
-  const [captcha, setCaptcha] = useState(() => generateCaptcha());
-  const [userCaptchaInput, setUserCaptchaInput] = useState('');
-
-  // Regenerate CAPTCHA when the modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setCaptcha(generateCaptcha());
-      setUserCaptchaInput('');
-    }
-  }, [isOpen]);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleCaptchaChange = (e) => {
-    setUserCaptchaInput(e.target.value);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // 1. Simple client-side validation
-    if (!formData.name || !formData.email || !formData.message || !formData.contact) {
-      setStatus('error_fields');
-      setTimeout(() => setStatus('pending'), 3000);
-      return;
-    }
-
-    // 2. CAPTCHA validation
-    const isCaptchaCorrect = parseInt(userCaptchaInput, 10) === captcha.correctAnswer;
-    if (!isCaptchaCorrect) {
-      setStatus('error_captcha');
-      setCaptcha(generateCaptcha()); // Reset captcha on failure
-      setUserCaptchaInput('');
-      setTimeout(() => setStatus('pending'), 3000);
-      return;
-    }
-
-    // 3. Begin submission
-    setStatus('sending');
-
-    // Simulate network request (replace with real fetch call in production)
-    try {
-      await fetch('https://portfolio-qnv9.vercel.app/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      // Simulate network delay and success
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Set success status
-      setStatus('sent');
-
-      // Clear form and reset state after successful submission
-      setFormData({ name: '', email: '', message: '', contact: '' });
-      setUserCaptchaInput('');
-      setCaptcha(generateCaptcha()); // Generate a new captcha for the next time
-
-    } catch (error) {
-      console.error("Submission error:", error);
-      setStatus('error_network');
-    } finally {
-      // Handle post-submission cleanup
-      setTimeout(() => {
-        // Only close if successful or if network error occurred (to let user try again)
-        if (status === 'sent' || status === 'error_network') {
-          onClose();
-        }
-        setStatus('pending');
-      }, 2000);
-    }
-  };
-
-  // Handle closing with Escape key (useCallback for stable dependency)
-  const handleKeyDown = useCallback((event) => {
-    if (event.key === 'Escape' && isOpen) {
-      onClose();
-    }
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
-
-  if (!isOpen) return null;
-
-  // --- Content Rendering based on submission status ---
-  let content;
-
-  if (status === 'sent') {
-    content = (
-      <div className="text-center p-8">
-        <p className="text-6xl mb-4 animate-pulse">✅</p>
-        <h3 className="text-3xl font-extrabold text-[var(--accent-blue)] mb-2">Email sent successfully.</h3>
-        <p className="text-gray-300">Your message is recieved to me. I will contact you shortly.</p>
-        <p className="text-sm font-mono text-gray-500 mt-4">// Closing window in 2 seconds //</p>
-      </div>
-    );
-  } else if (status.startsWith('error')) {
-    let title = "Transmission Failed.";
-    let message = "An unknown error occurred. Try again.";
-
-    if (status === 'error_fields') {
-      title = "DATA INCOMPLETE.";
-      message = "All system fields are mandatory. Please fill them out.";
-    } else if (status === 'error_captcha') {
-      title = "CAPTCHA FAILED.";
-      message = "Security check failed. Please re-solve the arithmetic challenge.";
-    } else if (status === 'error_network') {
-      title = "NETWORK OFFLINE.";
-      message = "Could not reach the server. Check your connection.";
-    }
-
-    content = (
-      <div className="text-center p-8">
-        <p className="text-6xl mb-4">⚠️</p>
-        <h3 className="text-3xl font-extrabold text-red-500 mb-2">{title}</h3>
-        <p className="text-gray-300">{message}</p>
-      </div>
-    );
-  } else {
-    // Pending or Sending (Form view)
-    content = (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <h3 className="text-3xl font-extrabold text-[var(--accent-blue)] mb-6 text-center">INITIATE CONTACT SEQUENCE</h3>
-
-        {/* Name Field */}
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium mb-1 text-gray-300 font-mono">Name</label>
-          <input
-            type="text"
-            name="name"
-            id="name"
-            required
-            value={formData.name}
-            onChange={handleChange}
-            className="form-input-cyber"
-            placeholder="Enter your name"
-          />
-        </div>
-
-        {/* Email Field */}
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-1 text-gray-300 font-mono">Email</label>
-          <input
-            type="email"
-            name="email"
-            id="email"
-            required
-            value={formData.email}
-            onChange={handleChange}
-            className="form-input-cyber"
-            placeholder="user@corp.net"
-          />
-        </div>
-
-        {/* Contact Field */}
-        <div>
-          <label htmlFor="contact" className="block text-sm font-medium mb-1 text-gray-300 font-mono">Mobile Number</label>
-          <input
-            type="tel" // Use tel for phone number input
-            name="contact"
-            id="contact"
-            required
-            value={formData.contact}
-            onChange={handleChange}
-            className="form-input-cyber"
-            placeholder="+1-234-567-8901"
-          />
-        </div>
-
-        {/* Message Field */}
-        <div>
-          <label htmlFor="message" className="block text-sm font-medium mb-1 text-gray-300 font-mono">Message</label>
-          <textarea
-            name="message"
-            id="message"
-            rows="4"
-            required
-            value={formData.message}
-            onChange={handleChange}
-            className="form-input-cyber"
-            placeholder="Describe your requirements..."
-          ></textarea>
-        </div>
-
-        {/* CAPTCHA Field - The new anti-bot measure */}
-        <div className={`p-3 rounded-lg border-2 font-mono ${status === 'error_captcha' ? 'border-red-500 bg-red-900/20' : 'border-[var(--input-border)] bg-gray-900/50'}`}>
-          <label htmlFor="captcha" className="block text-sm font-medium mb-2 text-[var(--accent-pink)]">
-            SECURITY CHECK: <span className="text-lg font-bold text-white ml-2">{captcha.num1} + {captcha.num2} = ?</span>
-          </label>
-          <input
-            type="number"
-            name="captcha"
-            id="captcha"
-            required
-            value={userCaptchaInput}
-            onChange={handleCaptchaChange}
-            className="form-input-cyber"
-            placeholder="Enter the result"
-          />
-        </div>
-
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={status === 'sending'}
-          className="w-full relative px-8 py-3 text-lg font-bold text-black bg-[var(--accent-blue)] border-2 border-[var(--accent-blue)] rounded-sm shadow-xl transition-all duration-300 hover:shadow-[0_0_40px_var(--shadow-blue-strong)] transform hover:scale-[1.02] active:scale-100 uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {status === 'sending' ? (
-            <>
-              <span className="animate-spin inline-block mr-2">⚙️</span> TRANSMITTING...
-            </>
-          ) : 'SEND MESSAGE'}
-        </button>
-      </form>
-    );
-  }
-
-
-  return (
-    // Modal Overlay (Handles background click and overall fade)
-    <div className={`modal-overlay ${isOpen ? 'open' : ''}`} onClick={onClose}>
-      <style>{globalStyles}</style>
-
-      {/* Modal Content (Handles stopPropagation to prevent accidental close) */}
-      <div className="modal-content-glass" onClick={(e) => e.stopPropagation()}>
-
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-white/50 text-3xl font-light opacity-80 close-button-neon z-20"
-          aria-label="Close Modal"
-        >
-          &times;
-        </button>
-
-        {content}
-
-      </div>
-    </div>
-  );
-};
-
-// --- MAIN APP ---
 const Portfolio = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('home');
@@ -1039,7 +782,7 @@ const Portfolio = () => {
             </div>
 
             {/* Right Column: User Image (Dynamic) */}
-            <div className="hidden lg:flex justify-center animate-reveal" style={{ animationDelay: '1.2s' }}>
+            <div className="flex justify-end animate-reveal" style={{ animationDelay: '1.2s' }}>
               <div className="relative w-80 h-80 bg-transparent p-1 border-4 border-gray-700/50 transform rotate-[-2deg] hover:rotate-[2deg] transition-transform duration-500">
                 <div className="absolute inset-0 border-4 border-[var(--accent-blue)] opacity-50 shadow-[0_0_80px_var(--shadow-blue-strong)]/30"></div>
                 <img
@@ -1071,20 +814,26 @@ const Portfolio = () => {
             </div>
 
             {/* Metric Callout (Dynamic Content) - Complex Layered Design */}
-            <div className="relative h-72">
+            <div className="relative h-auto lg:h-72 flex flex-col lg:flex-none gap-6">
               {PortfolioData.about.metrics.map((metric, index) => (
                 <div
                   key={index}
-                  className={`absolute w-64 p-6 bg-[var(--card-bg-transparent)] border-2 border-gray-700/50 backdrop-blur-sm 
-                            shadow-[0_0_20px_rgba(0,229,255,0.4)] transition-all duration-500 
-                            ${index === 0 ? 'top-0 left-0' : index === 1 ? 'top-16 right-0' : 'bottom-0 left-1/2 transform -translate-x-1/2'}`}
+                  className={`w-full lg:w-64 p-6 bg-[var(--card-bg-transparent)] border-2 border-gray-700/50 backdrop-blur-sm 
+                shadow-[0_0_20px_rgba(0,229,255,0.4)] transition-all duration-500 
+                ${index === 0 ? 'lg:absolute lg:top-0 lg:left-0' :
+                      index === 1 ? 'lg:absolute lg:top-16 lg:right-0' :
+                        'lg:absolute lg:bottom-0 lg:left-1/2 lg:transform lg:-translate-x-1/2'} 
+                flex flex-col items-start`}
                   style={{ zIndex: 10 - index }}
                 >
-                  <p className={`text-6xl font-extrabold ${index === 0 ? 'text-[var(--accent-blue)]' : 'text-white/80'} font-mono`}>{metric.value}</p>
+                  <p className={`text-6xl font-extrabold ${index === 0 ? 'text-[var(--accent-blue)]' : 'text-white/80'} font-mono`}>
+                    {metric.value}
+                  </p>
                   <p className="text-sm text-gray-400 mt-1 uppercase tracking-wider">{metric.label}</p>
                 </div>
               ))}
             </div>
+
 
           </div>
         </section>
@@ -1252,10 +1001,11 @@ const Portfolio = () => {
 
             {/* UPDATED: Button now opens the modal */}
             <button
-              onClick={() => setIsModalOpen(true)}
               className="relative px-12 py-4 text-xl font-extrabold text-black bg-[var(--accent-blue)] border-2 border-[var(--accent-blue)] rounded-sm shadow-2xl transition-all duration-300 hover:shadow-[0_0_60px_var(--shadow-blue-strong)] transform hover:scale-[1.05] active:scale-100 uppercase tracking-widest"
             >
-              {PortfolioData.contact.buttonText}
+              <a href="mailto:karanvishwakarma7385@gmail.com">
+                {PortfolioData.contact.buttonText}
+              </a>
             </button>
           </div>
         </section>
@@ -1273,12 +1023,6 @@ const Portfolio = () => {
         </footer>
 
       </div>
-
-      {/* 11. Contact Modal (Rendered outside main layout) */}
-      <ContactModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
     </>
   );
 }
